@@ -6,15 +6,15 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.parser.fonbetparser.domain.Coefficients;
-import org.parser.fonbetparser.domain.SportEvent;
-import org.parser.fonbetparser.domain.SportTeam;
+import org.parser.fonbetparser.domain.*;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,19 +27,30 @@ import java.util.zip.GZIPInputStream;
 @RequiredArgsConstructor
 public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
-    private final Set<SportEvent> sportEvents = new HashSet<>();
+    private Set<SportEvent> sportEvents = new HashSet<>();
     private String sportName;
 
     @Override
-    public Set<SportEvent> getSportEvents(String sportName) {
+    public LiveLine getSportEvents(String sportName) {
         this.sportName = sportName;
+        LocalDateTime start = LocalDateTime.now();
         deserialize();
-        return sportEvents;
+        LocalDateTime end = LocalDateTime.now();
+        log.info("Total time for parsing: " + ChronoUnit.MILLIS.between(start, end));
+        return LiveLine.builder()
+                .sportEvents(sportEvents)
+                .bookmaker("Fonbet")
+                .lineType(LineType.LIVE)
+                .startTime(start)
+                .endTime(end)
+                .build();
+
     }
 
     @Override
     public void deserialize() {
         Set<JsonObject> sportsByName, sportEvents, customFactors;
+        this.sportEvents = new HashSet<>();
 
         try {
             JsonObject currentLine = getCurrentLine();
@@ -57,29 +68,6 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
         } catch (IOException e) {
             log.error("Error while get JSON from server " + e);
         }
-    }
-
-    /**
-     * Collect factors (coefficients) of events of current type sports
-     * @param sportEvents sport events of current type sport
-     * @param customFactorsArray factors  of all sport types
-     * @return factors of events of current type sports
-     */
-    private Set<JsonObject> getCustomFactors(Set<JsonObject> sportEvents, JsonArray customFactorsArray) {
-        Set<JsonObject> customFactors = new HashSet<>();
-        JsonObject customFactorObject;
-        Set<Integer> sportEventsIds = sportEvents.stream()
-                .map(jsonObject -> jsonObject.get("id").getAsInt())
-                .collect(Collectors.toSet());
-
-        for (JsonElement customFactor : customFactorsArray) {
-            customFactorObject = customFactor.getAsJsonObject();
-            if (sportEventsIds.contains(customFactorObject.get("e").getAsInt())) {
-                customFactors.add(customFactorObject);
-            }
-        }
-
-        return customFactors;
     }
 
     /**
@@ -133,6 +121,33 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
         return sportEvents;
     }
+
+    /**
+     * Collect factors (coefficients) of events of current type sports
+     * @param sportEvents sport events of current type sport
+     * @param customFactorsArray factors  of all sport types
+     * @return factors of events of current type sports
+     */
+    private Set<JsonObject> getCustomFactors(Set<JsonObject> sportEvents, JsonArray customFactorsArray) {
+        Set<JsonObject> customFactors = new HashSet<>();
+        JsonObject customFactorObject;
+        Set<Integer> sportEventsIds = sportEvents.stream()
+                .map(jsonObject -> jsonObject.get("id").getAsInt())
+                .collect(Collectors.toSet());
+
+        for (JsonElement customFactor : customFactorsArray) {
+            customFactorObject = customFactor.getAsJsonObject();
+            if (sportEventsIds.contains(customFactorObject.get("e").getAsInt())) {
+                customFactors.add(customFactorObject);
+            }
+        }
+
+        return customFactors;
+    }
+
+
+
+
 
     /**
      * Main method for deserialization. Collect all data in set of domain objects
@@ -210,14 +225,13 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                 res.add(matcher.group("league"));
             }
 
-            return res;
         } else {
             System.out.println("Nor found :(");
             res.add(mainLine);
             res.add(mainLine);
             res.add(mainLine);
-            return res;
         }
+        return res;
 
 
     }
@@ -248,7 +262,7 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
         Map<Integer, String> totalsDict = new HashMap<>();
         totalsDict.put(930, "Тотал Б");
-        totalsDict.put(931, "Тотфл М");
+        totalsDict.put(931, "Тотал М");
 
         for (JsonObject factor : customFactors) {
             factorNumber = factor.get("f").getAsInt();
@@ -292,8 +306,8 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
     /**
      * Load JSON from fonbet in text
-     * @return
-     * @throws IOException
+     * @return json
+     * @throws IOException error
      */
     private JsonObject getCurrentLine() throws IOException {
         // TODO: add URL_STRING to application.properties

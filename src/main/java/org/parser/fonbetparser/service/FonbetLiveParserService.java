@@ -1,10 +1,8 @@
 package org.parser.fonbetparser.service;
 
-import org.parser.fonbetparser.domain.SportEvent;
-
-import java.util.Set;
+import org.parser.fonbetparser.domain.LiveLine;
 
 public interface FonbetLiveParserService {
     void deserialize();
-    Set<SportEvent> getSportEvents(String sportName);
+    LiveLine getSportEvents(String sportName);
 }
