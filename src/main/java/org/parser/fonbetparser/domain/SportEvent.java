@@ -3,8 +3,6 @@ package org.parser.fonbetparser.domain;
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.Map;
-
 @Data
 @Builder
 public class SportEvent {
@@ -12,9 +10,8 @@ public class SportEvent {
     private String sportType;
     private String countryName;
     private String league;
+    private String name;
     private SportTeam sportTeam;
-    private Map<String, Float> coefficient;
-    private Map<String, Float> doubleChance;
-    private Map<String, Float> handicap;
-    private Map<String, Float> totals;
+    private Coefficients coefficients;
+
 }
