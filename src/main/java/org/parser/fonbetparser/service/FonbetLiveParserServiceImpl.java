@@ -30,6 +30,9 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
     private Set<Child> level2sports;
     private Set<Child> level3sports;
 
+    /**
+     * Deserialize JSON from fonbet/live
+     */
     @Override
     public void deserialize() {
         JsonArray sports, events, factors;
@@ -50,6 +53,11 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
         }
     }
 
+    /**
+     * Collect JSON line to custom object
+     * @param sportName name of parsed sport
+     * @return deserialized JSON
+     */
     @Override
     public LiveLine getTargetSportEvents(String sportName) {
         this.sportName = sportName;
@@ -68,21 +76,18 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
     }
 
     /**
-     * Parse all events of current type sport
-     * @param events events of all sports
+     * Parse events from JSON and collect in to SportEvent objects
+     * @param events all events from JSON
+     * @param factors all customFactors from JSON
      */
     private void collectEvents(JsonArray events, JsonArray factors) {
         JsonObject eventObject, sportObject;
         SportEvent sportEvent;
-        Set<JsonObject> factorsQueue = StreamSupport.stream(factors.spliterator(), true)
-                .map(JsonElement::getAsJsonObject)
-                .collect(Collectors.toSet());
-
+        Set<JsonObject> targetFactors;
+        int level;
         targetSportEvents = new HashSet<>();
         level2sports = new HashSet<>();
         level3sports = new HashSet<>();
-        int level;
-
 
         LocalDateTime start = LocalDateTime.now();
         for (JsonElement event : events) {
@@ -96,7 +101,8 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                     .findFirst().orElse(null);
 
             if (sportObject != null) {
-                Set<JsonObject> targetFactors = factorsQueue.parallelStream()
+                targetFactors = StreamSupport.stream(factors.spliterator(), true)
+                        .map(JsonElement::getAsJsonObject)
                         .filter(jsonObject -> jsonObject.get("e").getAsInt() == eventId)
                         .collect(Collectors.toSet());
 
@@ -127,6 +133,14 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
         LocalDateTime end = LocalDateTime.now();
         log.info("Total time for adding events: " + ChronoUnit.MILLIS.between(start, end));
 
+        collectChildren();
+    }
+
+    /**
+     * Collects to one set all of events with level = 2 or level = 3 and then
+     * create Set of SportEvents with this objects
+     */
+    private void collectChildren() {
         LocalDateTime start1 = LocalDateTime.now();
         int childId, parentId;
         Set<Child> children = new HashSet<>(level2sports);
@@ -147,7 +161,6 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                 }
             }
         }
-
 
         Set<SportEvent> sportEventChildren = new HashSet<>();
         int childParentId, eventId;
@@ -178,7 +191,14 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
     }
 
-    private SportEvent buildSportEvent(JsonObject sportObject, JsonObject eventObject, Set<JsonObject> targetFactors) {
+    /**
+     * Builds SportEvent object
+     * @param sportObject target object from sports
+     * @param eventObject target object from events
+     * @param factors target customFactors
+     * @return new SportEvent Object
+     */
+    private SportEvent buildSportEvent(JsonObject sportObject, JsonObject eventObject, Set<JsonObject> factors) {
         List<String> eventMainInfo = getEventMainInfo(sportObject);
 
         return  SportEvent.builder()
@@ -191,10 +211,19 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                 .sportType(eventMainInfo.get(0))
                 .countryName(eventMainInfo.get(1))
                 .league(eventMainInfo.get(2))
-                .coefficients(collectCoefficientsForEvent(targetFactors))
+                .coefficients(collectCoefficientsForEvent(factors))
                 .build();
     }
 
+
+    /**
+     * Get from name of event sportType, country and league
+     * @param sportObject target object from sports
+     * @return List of 3 events, where
+     * 0 -> sport Name
+     * 1 -> country
+     * 2 -> league
+     */
     private List<String> getEventMainInfo(JsonObject sportObject) {
         List<String> res = new ArrayList<>();
         String mainLine = sportObject.get("name").getAsString();
@@ -266,7 +295,6 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
     /**
      * Load JSON from fonbet in text
-     *
      * @return json
      * @throws IOException error
      */
@@ -290,7 +318,6 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
     /**
      * Collect sports of current type
-     *
      * @param sports sports of all types
      */
     private void collectSportsByName(JsonArray sports) {
