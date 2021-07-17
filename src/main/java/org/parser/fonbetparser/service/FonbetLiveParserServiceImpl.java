@@ -92,33 +92,33 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                     .filter(jsonObject -> jsonObject.get("id").getAsInt() == eventSportId)
                     .findFirst().orElse(null);
 
-            targetFactors = StreamSupport.stream(factors.spliterator(), true)
-                    .map(JsonElement::getAsJsonObject)
-                    .filter(jsonObject -> jsonObject.get("e").getAsInt() == eventId)
-                    .collect(Collectors.toSet());
-
-
-            if (level == 2) {
-                level2sports.add(Child.builder()
-                        .id(eventId)
-                        .parentId(eventObject.get("parentId").getAsInt())
-                        .name(eventObject.get("name").getAsString())
-                        .coefficients(collectCoefficientsForEvent(targetFactors))
-                        .build()
-                );
-                continue;
-            } else if (level == 3) {
-                level3sports.add(Child.builder()
-                        .id(eventId)
-                        .parentId(eventObject.get("parentId").getAsInt())
-                        .name(eventObject.get("name").getAsString())
-                        .coefficients(collectCoefficientsForEvent(targetFactors))
-                        .build()
-                );
-                continue;
-            }
-
             if (sportObject != null) {
+                targetFactors = StreamSupport.stream(factors.spliterator(), true)
+                        .map(JsonElement::getAsJsonObject)
+                        .filter(jsonObject -> jsonObject.get("e").getAsInt() == eventId)
+                        .collect(Collectors.toSet());
+
+
+                if (level == 2) {
+                    level2sports.add(Child.builder()
+                            .id(eventId)
+                            .parentId(eventObject.get("parentId").getAsInt())
+                            .name(eventObject.get("name").getAsString())
+                            .coefficients(collectCoefficientsForEvent(targetFactors))
+                            .build()
+                    );
+                    continue;
+                } else if (level == 3) {
+                    level3sports.add(Child.builder()
+                            .id(eventId)
+                            .parentId(eventObject.get("parentId").getAsInt())
+                            .name(eventObject.get("name").getAsString())
+                            .coefficients(collectCoefficientsForEvent(targetFactors))
+                            .build()
+                    );
+                    continue;
+                }
+
                 sportEvent = buildSportEvent(sportObject, eventObject, targetFactors);
                 targetSportEvents.add(sportEvent);
             }
@@ -127,9 +127,8 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
         log.info("Total time for adding events: " + ChronoUnit.MILLIS.between(start, end));
 
         LocalDateTime start1 = LocalDateTime.now();
-        Set<Child> children = new HashSet<>();
         int childId, parentId;
-        children.addAll(level2sports);
+        Set<Child> children = new HashSet<>(level2sports);
         if (level3sports.size() > 0) {
             log.info("level 3 has objects");
             for (Child level3 : level3sports) {
