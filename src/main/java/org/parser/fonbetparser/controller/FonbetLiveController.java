@@ -27,6 +27,6 @@ public class FonbetLiveController {
     @GetMapping("/live-sport-events")
     @ResponseBody
     public ResponseEntity<LiveLine> getSportEvents(@RequestParam(name = "sportName") String sportName) {
-        return new ResponseEntity<>(parserService.getSportEvents(sportName), HttpStatus.OK);
+        return new ResponseEntity<>(parserService.getTargetSportEvents(sportName), HttpStatus.OK);
     }
 }

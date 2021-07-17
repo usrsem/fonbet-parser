@@ -13,5 +13,4 @@ public class SportEvent {
     private String name;
     private SportTeam sportTeam;
     private Coefficients coefficients;
-
 }

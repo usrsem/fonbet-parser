@@ -6,20 +6,19 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.parser.fonbetparser.domain.*;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.zip.GZIPInputStream;
 
 
 @Service
@@ -31,7 +30,7 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
     private String sportName;
 
     @Override
-    public LiveLine getSportEvents(String sportName) {
+    public LiveLine getTargetSportEvents(String sportName) {
         this.sportName = sportName;
         LocalDateTime start = LocalDateTime.now();
         deserialize();
@@ -44,7 +43,6 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                 .startTime(start)
                 .endTime(end)
                 .build();
-
     }
 
     @Override
@@ -69,6 +67,8 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
             log.error("Error while get JSON from server " + e);
         }
     }
+
+
 
     /**
      * Collect sports of current type
@@ -189,15 +189,15 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
 
             this.sportEvents.add(
-              SportEvent.builder()
-                      .eventId(eventId)
-                      .sportType(sportCountyLeague.get(0))
-                      .countryName(sportCountyLeague.get(1))
-                      .league(sportCountyLeague.get(2))
-                      .sportTeam(sportTeam)
-                      .coefficients(coefficients)
-                      .name(name)
-                      .build()
+                    SportEvent.builder()
+                            .eventId(eventId)
+                            .sportType(sportCountyLeague.get(0))
+                            .countryName(sportCountyLeague.get(1))
+                            .league(sportCountyLeague.get(2))
+                            .sportTeam(sportTeam)
+                            .coefficients(coefficients)
+                            .name(name)
+                            .build()
             );
         }
 
@@ -299,8 +299,8 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                 events.stream()
                         .filter(jsonObject ->
                                 jsonObject.get("id").getAsInt() == child.get("parentId").getAsInt())
-                .findFirst()
-                .orElse(child)
+                        .findFirst()
+                        .orElse(child)
         );
     }
 
@@ -311,13 +311,21 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
      */
     private JsonObject getCurrentLine() throws IOException {
         // TODO: add URL_STRING to application.properties
-        String URL_STRING = "https://line32.bkfon-resources.com/live/currentLine/ru?scopeMarket=1600&sysId=1";
-        URL oracle = new URL(URL_STRING);
-        BufferedReader in = new BufferedReader(
-                new InputStreamReader(new GZIPInputStream(oracle.openStream()))
-        );
-        JsonObject res = JsonParser.parseString(in.readLine()).getAsJsonObject();
-        in.close();
-        return res;
+        LocalDateTime start = LocalDateTime.now();
+        HttpComponentsClientHttpRequestFactory clientHttpRequestFactory = new HttpComponentsClientHttpRequestFactory(
+                HttpClientBuilder.create().build());
+        String url = "https://line32.bkfon-resources.com/live/currentLine/ru?scopeMarket=1600&sysId=1";
+        RestTemplate restTemplate = new RestTemplate(clientHttpRequestFactory);
+
+        String response = restTemplate.getForObject(url, String.class);
+
+        LocalDateTime end = LocalDateTime.now();
+        log.info("Total time for download currentLine: " + ChronoUnit.MILLIS.between(start, end));
+
+        if (response != null)
+            return JsonParser.parseString(response).getAsJsonObject();
+        throw new IOException("No JSON");
     }
 }
+
+
