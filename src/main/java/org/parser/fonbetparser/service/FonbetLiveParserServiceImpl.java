@@ -74,10 +74,13 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
     private void collectEvents(JsonArray events, JsonArray factors) {
         JsonObject eventObject, sportObject;
         SportEvent sportEvent;
+        Set<JsonObject> factorsQueue = StreamSupport.stream(factors.spliterator(), true)
+                .map(JsonElement::getAsJsonObject)
+                .collect(Collectors.toSet());
+
         targetSportEvents = new HashSet<>();
         level2sports = new HashSet<>();
         level3sports = new HashSet<>();
-        Set<JsonObject> targetFactors;
         int level;
 
 
@@ -93,11 +96,9 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                     .findFirst().orElse(null);
 
             if (sportObject != null) {
-                targetFactors = StreamSupport.stream(factors.spliterator(), true)
-                        .map(JsonElement::getAsJsonObject)
+                Set<JsonObject> targetFactors = factorsQueue.parallelStream()
                         .filter(jsonObject -> jsonObject.get("e").getAsInt() == eventId)
                         .collect(Collectors.toSet());
-
 
                 if (level == 2) {
                     level2sports.add(Child.builder()
@@ -148,7 +149,6 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
         }
 
 
-        System.out.println(children);
         Set<SportEvent> sportEventChildren = new HashSet<>();
         int childParentId, eventId;
         for (Child child : children) {
