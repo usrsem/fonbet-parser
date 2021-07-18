@@ -84,6 +84,10 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
         JsonObject eventObject, sportObject;
         SportEvent sportEvent;
         Set<JsonObject> targetFactors;
+        Set<JsonObject> factorsSet = StreamSupport.stream(factors.spliterator(), true)
+                .map(JsonElement::getAsJsonObject)
+                .collect(Collectors.toSet());
+
         int level;
         targetSportEvents = new HashSet<>();
         level2sports = new HashSet<>();
@@ -101,8 +105,7 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
                     .findFirst().orElse(null);
 
             if (sportObject != null) {
-                targetFactors = StreamSupport.stream(factors.spliterator(), true)
-                        .map(JsonElement::getAsJsonObject)
+                targetFactors = factorsSet.parallelStream()
                         .filter(jsonObject -> jsonObject.get("e").getAsInt() == eventId)
                         .collect(Collectors.toSet());
 
@@ -142,18 +145,14 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
      */
     private void collectChildren() {
         LocalDateTime start1 = LocalDateTime.now();
-        int childId, parentId;
         Set<Child> children = new HashSet<>(level2sports);
         if (level3sports.size() > 0) {
-            log.info("level 3 has objects");
-            for (Child level3 : level3sports) {
-                for (Child level2 : level2sports) {
-                    parentId = level3.getParentId();
-                    childId = level2.getId();
-                    if (childId == parentId) {
+            for (Child level2 : level2sports) {
+                for (Child level3 : level3sports) {
+                    if (level3.getParentId().equals(level2.getId())) {
                         children.add(Child.builder()
                                 .id(level3.getId())
-                                .parentId(childId)
+                                .parentId(level2.getParentId())
                                 .name(level3.getName())
                                 .build()
                         );
@@ -230,8 +229,9 @@ public class FonbetLiveParserServiceImpl implements FonbetLiveParserService {
 
         if (sportName.equals("Футбол")) {
             Pattern pattern = Pattern.compile(
-                    "^(?<sportType>(Футбол. Жен)\\.?|(Футбол)\\.?)\\s" +
-                            "(?<countryName>(Товарищеские матчи)?|(FIFA 21.)?|(COSAFA Cup)\\.?|(.*?)?)\\s" +
+                    "^(?<sportType>(Футбол. До 20 лет)?|(Футбол. Жен)?|(Футбол)?).\\s" +
+                            "(?<countryName>(Товарищеские матчи)?(FIFA 21. eSport Battle)?" +
+                            "|(FIFA 21. Лига Про. [а-яА-ЯёЁ]+)?|(FIFA 21)?|(COSAFA Cup)?|(.+?)).\\s" +
                             "(?<league>.*)$");
 
             Matcher matcher = pattern.matcher(mainLine);
