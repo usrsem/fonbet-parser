@@ -6,11 +6,20 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <style>
+        .events {padding: 5px; margin: 5px; }
+        .string { color: #10a5b6; }
+        .number { color: darkorange; }
+        .boolean { color: blue; }
+        .null { color: #8e0801; }
+        .key { color: #8149c4; }
+        body { background: #e5e5e5 }
+    </style>
     <title>FonbetParser</title>
 </head>
 <body>
-<h1>FonbetParser</h1>
-<code class="events"></code>
+<h1>FonbetLiveParser</h1>
+<pre class="events" lang="json"></pre>
 <script type="text/javascript">
     window.addEventListener('load', () => {
         $.get(
@@ -18,9 +27,7 @@
             {sportName: 'Футбол'},
             function (data) {
                 console.log(data)
-                $(".events").html("");
-                $(".events").html(JSON.stringify(data));
-                data = null
+                $(".events").html(syntaxHighlight(JSON.stringify(data, undefined, 4)));
             }
         );
         setInterval(() => {
@@ -29,15 +36,32 @@
                 {sportName: 'Футбол'},
                 function (data) {
                     console.log(data)
-                    $(".events").html("");
-                    $(".events").html(JSON.stringify(data));
-                    data = nu;;
+                    $(".events").html(syntaxHighlight(JSON.stringify(data, null, 4)));
                 }
             );
 
             return false;
         }, 10000);
     });
+
+    function syntaxHighlight(json) {
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
 </script>
 </body>
 </html>
